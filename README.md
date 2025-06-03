@@ -35,7 +35,3 @@
 7. **Testar no Claude Desktop**
     ```
     Ex: Quero ir de metro do estádio da luz até à altice arena, qual a melhor rota?
-    
-
-
-
