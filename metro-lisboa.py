@@ -1,22 +1,22 @@
 import os
 import sys
-from typing import Any
-import httpx
-from dotenv import load_dotenv
-from mcp.server.fastmcp import FastMCP
 import asyncio
+from typing import Any
 from geopy.distance import geodesic
+from dotenv import load_dotenv
+import httpx
+from mcp.server.fastmcp import FastMCP
 
-# Carregar variáveis do .env
+# Load environment variables
 load_dotenv()
 
 mcp = FastMCP("metro-lisboa")
 
 METRO_API_BASE = os.getenv("METRO_API_BASE")
 METRO_API_TOKEN = os.getenv("METRO_API_TOKEN")
-USER_AGENT = "metro-chat/1.0"
+USER_AGENT = "metro-lisboa"
 
-async def make_metro_request(endpoint: str) -> dict[str, Any] | list[Any] | None:
+async def make_api_request(endpoint: str) -> dict[str, Any] | list[Any] | None:
     headers = {
         "User-Agent": USER_AGENT,
         "Accept": "application/json",
@@ -29,115 +29,144 @@ async def make_metro_request(endpoint: str) -> dict[str, Any] | list[Any] | None
             response.raise_for_status()
             return response.json()
         except Exception as e:
-            print(f"Erro ao fazer pedido à API: {e}", file=sys.stderr)
+            print(f"Error requesting Metro API: {e}", file=sys.stderr)
             return None
 
+def extract_lines(raw: str) -> set[str]:
+    """Converts a string like '[Blue, Green]' to a set: {'Blue', 'Green'}"""
+    return set(s.strip(" []") for s in raw.split(",") if s.strip(" []"))
 
-def extrair_linhas(raw: str) -> set[str]:
-    """Converte string tipo '[Azul, Verde]' em set: {'Azul', 'Verde'}"""
-    return set(
-        s.strip(" []") for s in raw.split(",") if s.strip(" []")
-    )
+async def geocode_location(location: str) -> tuple[float, float] | None:
+    url = "https://nominatim.openstreetmap.org/search"
+    params = {
+        "q": location,
+        "format": "json",
+        "limit": 1
+    }
+    headers = {
+        "User-Agent": USER_AGENT
+    }
 
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(url, params=params, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+            if data:
+                lat = float(data[0]["lat"])
+                lon = float(data[0]["lon"])
+                return lat, lon
+        except Exception as e:
+            print(f"Error during geocoding: {e}", file=sys.stderr)
+            return None
+
+async def average_wait_time_at_station(station_name: str) -> int:
+    response = await make_api_request(f"/tempoEspera/{station_name}")
+    if isinstance(response, dict) and "resposta" in response and isinstance(response["resposta"], list):
+        waits = [int(item["tempo"]) for item in response["resposta"] if item.get("tempo", "").isdigit()]
+        if waits:
+            return round(sum(waits) / len(waits))
+    return 4  # fallback default
+
+async def route_between_stations(origin_station: dict, destination_station: dict) -> str:
+    origin_name = origin_station["stop_name"]
+    destination_name = destination_station["stop_name"]
+    origin_lines = extract_lines(origin_station.get("linha", ""))
+    destination_lines = extract_lines(destination_station.get("linha", ""))
+
+    TRAVEL_TIME_BETWEEN_STATIONS = 2  # in minutes
+
+    intersection = origin_lines & destination_lines
+    if intersection:
+        line = list(intersection)[0]
+        estimated_time = 5 * TRAVEL_TIME_BETWEEN_STATIONS + await average_wait_time_at_station(origin_name)
+        return (
+            f"The nearest station is **{origin_name}**.\n"
+            f"You can take the **{line}** line directly to **{destination_name}**.\n"
+            f"Estimated time: **{estimated_time} minutes**."
+        )
+
+    # Look for a transfer station
+    raw = await make_api_request("/infoEstacao/todos")
+    stations_info = raw.get("resposta") if isinstance(raw, dict) else raw
+
+    best_option = None
+    shortest_time = float("inf")
+
+    for station in stations_info:
+        transfer_name = station["stop_name"]
+        transfer_lines = extract_lines(station.get("linha", ""))
+
+        if origin_lines & transfer_lines and destination_lines & transfer_lines:
+            wait_transfer = await average_wait_time_at_station(transfer_name)
+            total_time = (
+                3 * TRAVEL_TIME_BETWEEN_STATIONS +
+                await average_wait_time_at_station(origin_name) +
+                3 * TRAVEL_TIME_BETWEEN_STATIONS +
+                wait_transfer
+            )
+            if total_time < shortest_time:
+                shortest_time = total_time
+                best_option = transfer_name
+
+    if best_option:
+        origin_line = list(origin_lines)[0]
+        destination_line = list(destination_lines)[0]
+        return (
+            f"The nearest station is **{origin_name}**.\n"
+            f"There is no direct connection to **{destination_name}**.\n"
+            f"You should take the **{origin_line}** line to **{best_option}**, "
+            f"then transfer to the **{destination_line}** line to reach **{destination_name}**.\n"
+            f"Estimated time: **{shortest_time} minutes**."
+        )
+
+    return f"The nearest station is {origin_name}, but no simple route to {destination_name} was found."
 
 @mcp.tool()
-async def rota_para_destino(destino: str, latitude: float, longitude: float) -> str:
+async def route_between_locations(origin_text: str, destination_text: str) -> str:
     """
-    Devolve a melhor rota no Metro até à estação destino,
-    com base na estação mais próxima das coordenadas fornecidas,
-    escolhendo a rota com menor tempo estimado.
+    Calculates the metro route between two locations given in plain text
     """
+    origin_coords = await geocode_location(origin_text)
+    if not origin_coords:
+        return f"Could not find the origin location '{origin_text}'."
 
-    raw = await make_metro_request("/infoEstacao/todos")
+    destination_coords = await geocode_location(destination_text)
+    if not destination_coords:
+        return f"Could not find the destination location '{destination_text}'."
+
+    raw = await make_api_request("/infoEstacao/todos")
     if not raw:
-        return "Não foi possível obter a lista de estações."
+        return "Error retrieving metro stations."
 
-    estacoes_info = raw.get("resposta") if isinstance(raw, dict) and "resposta" in raw else raw
-    if not isinstance(estacoes_info, list):
-        return f"Formato inesperado da resposta da API: {raw}"
+    stations = raw.get("resposta") if isinstance(raw, dict) else raw
 
-    # Estação mais próxima
-    mais_proxima = min(
-        estacoes_info,
-        key=lambda e: geodesic(
-            (latitude, longitude),
-            (float(e["stop_lat"]), float(e["stop_lon"]))
-        ).meters
-    )
-    estacao_origem = mais_proxima["stop_name"]
-    id_origem = mais_proxima["stop_id"]
-    linhas_origem = extrair_linhas(mais_proxima.get("linha", ""))
+    def nearest_station(coord):
+        min_dist = float("inf")
+        nearest = None
 
-    # Estação destino
-    estacao_destino = next(
-        (e for e in estacoes_info if destino.lower() in e["stop_name"].lower()), None
-    )
-    if not estacao_destino:
-        return f"A estação de destino '{destino}' não foi encontrada."
+        for e in stations:
+            station_coord = (float(e["stop_lat"]), float(e["stop_lon"]))
+            dist = geodesic(coord, station_coord).meters
+            print(f"Distance to {e['stop_name']}: {dist:.1f} m", file=sys.stderr)
+            if dist < min_dist:
+                min_dist = dist
+                nearest = e
 
-    id_destino = estacao_destino["stop_id"]
-    nome_destino = estacao_destino["stop_name"]
-    linhas_destino = extrair_linhas(estacao_destino.get("linha", ""))
+        return nearest
 
-    TEMPO_ENTRE_ESTACOES = 2  # minutos
-    TEMPO_ESPERA = 4          # minutos
+    origin_station = nearest_station(origin_coords)
+    destination_station = nearest_station(destination_coords)
 
-    # Verificar se existe linha direta
-    intersecao = linhas_origem & linhas_destino
-    if intersecao:
-        linha = list(intersecao)[0]
-        # Estimamos número de estações (não temos path real, vamos estimar com 5 estações)
-        tempo_estimado = 5 * TEMPO_ENTRE_ESTACOES + TEMPO_ESPERA
-        return (
-            f"A estação mais próxima de ti é **{estacao_origem}**.\n"
-            f"Podes apanhar a linha **{linha}** diretamente até **{nome_destino}**.\n"
-            f"Tempo estimado: **{tempo_estimado} minutos**."
-        )
-
-    # Procurar estação de troca mais eficiente
-    melhor_opcao = None
-    menor_tempo = float("inf")
-
-    for e in estacoes_info:
-        nome_troca = e["stop_name"]
-        linhas_estacao = extrair_linhas(e.get("linha", ""))
-
-        if linhas_origem & linhas_estacao and linhas_destino & linhas_estacao:
-            tempo = (
-                3 * TEMPO_ENTRE_ESTACOES +    # origem -> troca
-                TEMPO_ESPERA +                # espera antes da troca
-                3 * TEMPO_ENTRE_ESTACOES +    # troca -> destino
-                TEMPO_ESPERA                  # espera final
-            )
-            if tempo < menor_tempo:
-                menor_tempo = tempo
-                melhor_opcao = nome_troca
-
-    if melhor_opcao:
-        linha_origem = list(linhas_origem)[0]
-        linha_destino = list(linhas_destino)[0]
-        return (
-            f"A estação mais próxima de ti é **{estacao_origem}**.\n"
-            f"Não existe ligação direta até **{nome_destino}**.\n"
-            f"Deves apanhar a linha **{linha_origem}** até **{melhor_opcao}**, "
-            f"e mudar para a linha **{linha_destino}** até **{nome_destino}**.\n"
-            f"Tempo estimado: **{menor_tempo} minutos**."
-        )
-
-    return (
-        f"A estação mais próxima é {estacao_origem}, mas não foi possível encontrar uma rota simples até {nome_destino}."
-    )
-
+    return await route_between_stations(origin_station, destination_station)
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "test":
         async def test():
-            # Exemplo de teste: localização perto de Alto dos Moinhos
-            lat = 38.74944
-            lon = -9.17917
-            destino = "Chelas"
-            resultado = await rota_para_destino(destino, lat, lon)
-            print(resultado)
+            origin = "Estádio da Luz"
+            destination = "Altice Arena"
+            result = await route_between_locations(origin, destination)
+            print(result)
 
         asyncio.run(test())
     else:
