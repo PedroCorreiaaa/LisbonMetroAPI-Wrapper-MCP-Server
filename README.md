@@ -1,6 +1,6 @@
-# LisbonMetroAPI-Wrapper-MCP-Server
+# 🚇 LisbonMetroAPI-Wrapper-MCP-Server
 
-## Autenticação API Metro Lisboa
+## 🔐 Autenticação API Metro Lisboa
 
 1. **Aceder ao url: https://api.metrolisboa.pt/store/**
 
@@ -23,7 +23,7 @@
 
 
 
-## Instruções para correr o projeto via Smithery
+## ⚙️ Instruções para correr o projeto via Smithery
 
 1. **Aceder ao URL do MCP Server**
     https://smithery.ai/server/@PedroCorreiaaa/lisbonmetroapi-wrapper-mcp-server
@@ -34,7 +34,7 @@
     3. Correr no terminal o comando que foi gerado
     4. Abrir o Claude e testar
     
-## Instruções para correr o projeto localmente
+## 💻 Instruções para correr o projeto localmente
 
 1. **Clonar o repositório** (se ainda não tiveres feito):
    ```bash
