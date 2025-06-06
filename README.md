@@ -48,7 +48,6 @@
     pip install requirements.txt
 4. **Configurar .env**
     ```
-    METRO_API_BASE=<METRO_API_URL-BASE>
     METRO_API_TOKEN=<METRO_API_TOKEN>
     ```
 5. **Aceder à configuração do Claude Desktop**
