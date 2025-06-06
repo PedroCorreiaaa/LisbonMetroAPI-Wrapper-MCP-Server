@@ -1,6 +1,14 @@
 # LisbonMetroAPI-Wrapper-MCP-Server
+[![smithery badge](https://smithery.ai/badge/@PedroCorreiaaa/lisbonmetroapi-wrapper-mcp-server)](https://smithery.ai/server/@PedroCorreiaaa/lisbonmetroapi-wrapper-mcp-server)
 
 
+### Installing via Smithery
+
+To install lisbonmetroapi-wrapper-mcp-server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@PedroCorreiaaa/lisbonmetroapi-wrapper-mcp-server):
+
+```bash
+npx -y @smithery/cli install @PedroCorreiaaa/lisbonmetroapi-wrapper-mcp-server --client claude
+```
 
 ## Instruções para correr o projeto
 
