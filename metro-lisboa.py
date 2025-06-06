@@ -12,7 +12,7 @@ load_dotenv()
 
 mcp = FastMCP("metro-lisboa")
 
-METRO_API_BASE = os.getenv("METRO_API_BASE")
+METRO_API_BASE = "https://api.metrolisboa.pt:8243/estadoServicoML/1.0.1"
 METRO_API_TOKEN = os.getenv("METRO_API_TOKEN")
 USER_AGENT = "metro-lisboa"
 
