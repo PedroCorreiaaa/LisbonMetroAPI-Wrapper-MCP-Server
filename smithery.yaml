@@ -1,0 +1,24 @@
+# Smithery configuration file: https://smithery.ai/docs/build/project-config
+
+startCommand:
+  type: stdio
+  commandFunction:
+    # A JS function that produces the CLI command based on the given config to start the MCP on stdio.
+    |-
+    (config) => ({ command: 'python', args: ['metro-lisboa.py'], env: { METRO_API_BASE: config.metroApiBase, METRO_API_TOKEN: config.metroApiToken } })
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP.
+    type: object
+    required:
+      - metroApiBase
+      - metroApiToken
+    properties:
+      metroApiBase:
+        type: string
+        description: Base URL of the Metro API, e.g., https://api.metro.example.com
+      metroApiToken:
+        type: string
+        description: Authorization token for accessing the Metro API
+  exampleConfig:
+    metroApiBase: https://api.metro.lisboa.pt
+    metroApiToken: your_api_token_here
