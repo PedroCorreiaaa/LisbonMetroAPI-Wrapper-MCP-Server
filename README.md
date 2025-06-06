@@ -2,24 +2,24 @@
 
 ## Autenticação API Metro Lisboa
 
-    1. Aceder ao url: https://api.metrolisboa.pt/store/
+1. **Aceder ao url: https://api.metrolisboa.pt/store/**
 
-    2. Criar Conta
+2. **Criar Conta**
 
-    3. Na aba "Applications" criar uma nova aplicação
+3. **Na aba "Applications" criar uma nova aplicação**
 
-    4. Aceder à aba "APIS" selecionar "EstadoServicoML - 1.0.1"
+4. **Aceder à aba "APIS" selecionar "EstadoServicoML - 1.0.1"**
 
-    5. Selecionar a aplicação criada e subscrever a API
+5. **Selecionar a aplicação criada e subscrever a API**
 
-    6. Guardar o URL exibido na secção "Production and Sandbox Endpoints"
+6. **Guardar o URL exibido na secção "Production and Sandbox Endpoints"**
 
-    7. Carregar na aba "API Console", selecionar:
+7. **Carregar na aba "API Console", selecionar:**
 
-        Try - APPLICATION_NAME
-        Using - Production
+    Try - APPLICATION_NAME
+    Using - Production
 
-        Com estas opções será exibido o TOKEN de acesso à API
+    Com estas opções será exibido o TOKEN de acesso à API
 
 
 
