@@ -1,5 +1,7 @@
 # 🚇 LisbonMetroAPI-Wrapper-MCP-Server
 
+[![smithery badge](https://smithery.ai/badge/@PedroCorreiaaa/lisbonmetroapi-wrapper-mcp-server)](https://smithery.ai/server/@PedroCorreiaaa/lisbonmetroapi-wrapper-mcp-server)
+
 ## 🔐 Autenticação API Metro Lisboa
 
 1. **Aceder ao url: https://api.metrolisboa.pt/store/**
