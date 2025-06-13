@@ -7,23 +7,23 @@
 3. **In the "Applications" tab, create a new application**
 
 <p align="center">
-  <img src="./assets/criar_aplicacao.png" width="400"/>
+  <img src="./assets/criar_aplicacao.png" width="500"/>
 </p>
 
 4. **Get Production Keys**
-
-<img src="./assets/gerar_token.png" width="400"/>
-
+<p align="center">
+    <img src="./assets/gerar_token.png" width="500"/>
+</p>
 5. **Go to the "APIs" tab and select "EstadoServicoML - 1.0.1"**
 
 6. **Select the application you created and subscribe to the API**
-
-<img src="./assets/subscrever_api.png" width="600"/>
-
+<p align="center">
+    <img src="./assets/subscrever_api.png" width="600"/>
+</p>
 7. **Obtain the Token**
-
-<img src="./assets/token_obtido.png" width="400"/>
-
+<p align="center">
+    <img src="./assets/token_obtido.png" width="500"/>
+</p>
 ## ⚙️ Instructions to run the project via Smithery
 
 1. **Simple prompt**
