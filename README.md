@@ -1,35 +1,32 @@
 # 🚇 LisbonMetroAPI-Wrapper-MCP-Server
+## 🔐 Metro Lisbon API Authentication
+1. **Access the URL: https://api.metrolisboa.pt/store/**
 
-## 🔐 Autenticação API Metro Lisboa
+2. **Create an Account**
 
-1. **Aceder ao url: https://api.metrolisboa.pt/store/**
-
-2. **Criar Conta**
-
-3. **Na aba "Applications" criar uma nova aplicação**
+3. **In the "Applications" tab, create a new application**
 
 <img src="./assets/criar_aplicacao.png" width="400"/>
 
-4. **Obter Production Keys**
+4. **Get Production Keys**
 
 <img src="./assets/gerar_token.png" width="400"/>
 
-5. **Aceder à aba "APIS" selecionar "EstadoServicoML - 1.0.1"**
+5. **Go to the "APIs" tab and select "EstadoServicoML - 1.0.1"**
 
-6. **Selecionar a aplicação criada e subscrever a API**
+6. **Select the application you created and subscribe to the API**
 
-<img src="./assets/subscrever_api.png" width="400"/>
+<img src="./assets/subscrever_api.png" width="600"/>
 
-7. **Obter Token**
+7. **Obtain the Token**
 
 <img src="./assets/token_obtido.png" width="400"/>
 
+## ⚙️ Instructions to run the project via Smithery
 
-## ⚙️ Instruções para correr o projeto via Smithery
-1. **Prompt simples**
+1. **Simple prompt**
     ```
-    Ex: Quero ir de metro do estádio da luz até à altice arena, qual a melhor rota?~
-
-2. **Prompt mais complexa**
+    Ex: I want to go by metro from Estádio da Luz to Altice Arena, what is the best route?
+2. **More complex prompt**
     ```
-    Ex: Daqui a 3 dias vou à cidade de lisboa, vou ficar alojado no Vip Executive Entrecampos e quero visitar o estadio da luz, o oceanario de lisboa e o bairro alto, tudo no mesmo dia de seguida. Use o mcp server lisbonmetroapi wrapper
+    Ex: In 3 days I will visit Lisbon, staying at Vip Executive Entrecampos, and I want to visit Est
