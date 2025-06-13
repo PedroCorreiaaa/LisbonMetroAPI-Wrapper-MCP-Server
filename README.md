@@ -29,6 +29,8 @@
 
 ## ⚙️ Instructions to run the project via Smithery
 
+1. https://smithery.ai/server/@PedroCorreiaaa/lisbonmetroapi-wrapper-mcp-server
+
 1. **Simple prompt**
     ```
     Ex: I want to go by metro from Estádio da Luz to Altice Arena, what is the best route?
