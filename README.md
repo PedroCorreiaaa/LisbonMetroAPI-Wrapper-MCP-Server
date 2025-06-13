@@ -18,7 +18,7 @@
 
 6. **Selecionar a aplicação criada e subscrever a API**
 
-<img src="assets/subscrever_api" width="300"/>
+<img src="./assets/subscrever_api.png" width="300"/>
 
 7. **Obter Token**
 
