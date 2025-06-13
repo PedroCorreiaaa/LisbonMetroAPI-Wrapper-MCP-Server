@@ -14,16 +14,19 @@
 <p align="center">
     <img src="./assets/gerar_token.png" width="500"/>
 </p>
+
 5. **Go to the "APIs" tab and select "EstadoServicoML - 1.0.1"**
 
 6. **Select the application you created and subscribe to the API**
 <p align="center">
     <img src="./assets/subscrever_api.png" width="600"/>
 </p>
+
 7. **Obtain the Token**
 <p align="center">
     <img src="./assets/token_obtido.png" width="500"/>
 </p>
+
 ## ⚙️ Instructions to run the project via Smithery
 
 1. **Simple prompt**
