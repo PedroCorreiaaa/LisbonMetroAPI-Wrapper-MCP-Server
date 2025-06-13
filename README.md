@@ -8,11 +8,11 @@
 
 3. **Na aba "Applications" criar uma nova aplicação**
 
-<img src="./assets/criar_aplicacao" width="400"/>
+<img src="./assets/criar_aplicacao.png" width="400"/>
 
 4. **Obter Production Keys**
 
-<img src="./assets/gerar_token" width="400"/>
+<img src="./assets/gerar_token.png" width="400"/>
 
 5. **Aceder à aba "APIS" selecionar "EstadoServicoML - 1.0.1"**
 
@@ -22,7 +22,7 @@
 
 7. **Obter Token**
 
-<img src="./assets/token_obtido" width="400"/>
+<img src="./assets/token_obtido.png" width="400"/>
 
 
 ## ⚙️ Instruções para correr o projeto via Smithery
