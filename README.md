@@ -6,7 +6,9 @@
 
 3. **In the "Applications" tab, create a new application**
 
-<img src="./assets/criar_aplicacao.png" width="400"/>
+<p align="center">
+  <img src="./assets/criar_aplicacao.png" width="400"/>
+</p>
 
 4. **Get Production Keys**
 
