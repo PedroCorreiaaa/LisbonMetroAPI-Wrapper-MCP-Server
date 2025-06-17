@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/pedrocorreiaaa-lisbonmetroapi-wrapper-mcp-server-badge.png)](https://mseep.ai/app/pedrocorreiaaa-lisbonmetroapi-wrapper-mcp-server)
+
 # 🚇 LisbonMetroAPI-Wrapper-MCP-Server
 ## 🔐 Metro Lisbon API Authentication
 1. **Access the URL: https://api.metrolisboa.pt/store/**
