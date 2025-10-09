@@ -6,46 +6,31 @@ from geopy.distance import geodesic
 from dotenv import load_dotenv
 import httpx
 from mcp.server.fastmcp import FastMCP
+from neo4j import AsyncGraphDatabase
 
 # Load environment variables
 load_dotenv()
 
 mcp = FastMCP("metro-lisboa")
 
-METRO_API_BASE = "https://api.metrolisboa.pt:8243/estadoServicoML/1.0.1"
-METRO_API_TOKEN = os.getenv("METRO_API_TOKEN")
 USER_AGENT = "metro-lisboa"
 
-async def make_api_request(endpoint: str) -> dict[str, Any] | list[Any] | None:
-    headers = {
-        "User-Agent": USER_AGENT,
-        "Accept": "application/json",
-        "Authorization": f"Bearer {METRO_API_TOKEN}"
-    }
-    url = f"{METRO_API_BASE}{endpoint}"
-    async with httpx.AsyncClient(verify=False) as client:
-        try:
-            response = await client.get(url, headers=headers, timeout=30.0)
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            print(f"Error requesting Metro API: {e}", file=sys.stderr)
-            return None
+# Neo4j configuration
+NEO4J_URI = os.getenv("NEO4J_URI")        # e.g. bolt://localhost:7687
+NEO4J_USER = os.getenv("NEO4J_USER")      # e.g. neo4j
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 
-def extract_lines(raw: str) -> set[str]:
-    """Converts a string like '[Blue, Green]' to a set: {'Blue', 'Green'}"""
-    return set(s.strip(" []") for s in raw.split(",") if s.strip(" []"))
+driver = AsyncGraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
 
+
+# -------------------------------
+# Geocoding (Nominatim)
+# -------------------------------
 async def geocode_location(location: str) -> tuple[float, float] | None:
+    """Convert free text (e.g. 'Altice Arena') into coordinates using OpenStreetMap."""
     url = "https://nominatim.openstreetmap.org/search"
-    params = {
-        "q": location,
-        "format": "json",
-        "limit": 1
-    }
-    headers = {
-        "User-Agent": USER_AGENT
-    }
+    params = {"q": location, "format": "json", "limit": 1}
+    headers = {"User-Agent": USER_AGENT}
 
     async with httpx.AsyncClient() as client:
         try:
@@ -58,75 +43,65 @@ async def geocode_location(location: str) -> tuple[float, float] | None:
                 return lat, lon
         except Exception as e:
             print(f"Error during geocoding: {e}", file=sys.stderr)
-            return None
+    return None
 
-async def average_wait_time_at_station(station_name: str) -> int:
-    response = await make_api_request(f"/tempoEspera/{station_name}")
-    if isinstance(response, dict) and "resposta" in response and isinstance(response["resposta"], list):
-        waits = [int(item["tempo"]) for item in response["resposta"] if item.get("tempo", "").isdigit()]
-        if waits:
-            return round(sum(waits) / len(waits))
-    return 4  # fallback default
 
-async def route_between_stations(origin_station: dict, destination_station: dict) -> str:
-    origin_name = origin_station["stop_name"]
-    destination_name = destination_station["stop_name"]
-    origin_lines = extract_lines(origin_station.get("linha", ""))
-    destination_lines = extract_lines(destination_station.get("linha", ""))
+# -------------------------------
+# Query to Neo4j
+# -------------------------------
+async def get_shortest_path_from_coords(orig_lat: float, orig_lon: float, dest_lat: float, dest_lon: float) -> dict[str, Any] | None:
+    """Runs the Neo4j query to compute the shortest metro path between two coordinates."""
+    cypher = """
+    WITH 
+      $orig_lat AS orig_lat, $orig_lon AS orig_lon,
+      $dest_lat AS dest_lat, $dest_lon AS dest_lon
 
-    TRAVEL_TIME_BETWEEN_STATIONS = 2  # in minutes
+    // Find nearest station to origin
+    MATCH (s1:Stop)
+    WITH s1, orig_lat, orig_lon, dest_lat, dest_lon,
+         sqrt((toFloat(s1.stop_lat) - orig_lat)^2 + (toFloat(s1.stop_lon) - orig_lon)^2) AS distO
+    ORDER BY distO ASC
+    LIMIT 1
+    WITH s1 AS startStop, orig_lat, orig_lon, dest_lat, dest_lon
 
-    intersection = origin_lines & destination_lines
-    if intersection:
-        line = list(intersection)[0]
-        estimated_time = 5 * TRAVEL_TIME_BETWEEN_STATIONS + await average_wait_time_at_station(origin_name)
-        return (
-            f"The nearest station is **{origin_name}**.\n"
-            f"You can take the **{line}** line directly to **{destination_name}**.\n"
-            f"Estimated time: **{estimated_time} minutes**."
+    // Find nearest station to destination
+    MATCH (s2:Stop)
+    WITH startStop, s2, orig_lat, orig_lon, dest_lat, dest_lon,
+         sqrt((toFloat(s2.stop_lat) - dest_lat)^2 + (toFloat(s2.stop_lon) - dest_lon)^2) AS distD
+    ORDER BY distD ASC
+    LIMIT 1
+    WITH startStop, s2 AS endStop
+
+    // Compute shortest path
+    MATCH path = shortestPath((startStop)-[:NEXT*]-(endStop))
+    RETURN 
+        startStop.stop_name AS EstacaoOrigem,
+        endStop.stop_name AS EstacaoDestino,
+        [n IN nodes(path) | n.stop_name] AS Estacoes,
+        [r IN relationships(path) | r.line] AS Linhas,
+        length(path) AS NumeroDeParagens;
+    """
+
+    async with driver.session() as session:
+        result = await session.run(
+            cypher,
+            orig_lat=orig_lat, orig_lon=orig_lon,
+            dest_lat=dest_lat, dest_lon=dest_lon
         )
+        record = await result.single()
+        return record.data() if record else None
 
-    # Look for a transfer station
-    raw = await make_api_request("/infoEstacao/todos")
-    stations_info = raw.get("resposta") if isinstance(raw, dict) else raw
 
-    best_option = None
-    shortest_time = float("inf")
-
-    for station in stations_info:
-        transfer_name = station["stop_name"]
-        transfer_lines = extract_lines(station.get("linha", ""))
-
-        if origin_lines & transfer_lines and destination_lines & transfer_lines:
-            wait_transfer = await average_wait_time_at_station(transfer_name)
-            total_time = (
-                3 * TRAVEL_TIME_BETWEEN_STATIONS +
-                await average_wait_time_at_station(origin_name) +
-                3 * TRAVEL_TIME_BETWEEN_STATIONS +
-                wait_transfer
-            )
-            if total_time < shortest_time:
-                shortest_time = total_time
-                best_option = transfer_name
-
-    if best_option:
-        origin_line = list(origin_lines)[0]
-        destination_line = list(destination_lines)[0]
-        return (
-            f"The nearest station is **{origin_name}**.\n"
-            f"There is no direct connection to **{destination_name}**.\n"
-            f"You should take the **{origin_line}** line to **{best_option}**, "
-            f"then transfer to the **{destination_line}** line to reach **{destination_name}**.\n"
-            f"Estimated time: **{shortest_time} minutes**."
-        )
-
-    return f"The nearest station is {origin_name}, but no simple route to {destination_name} was found."
-
+# -------------------------------
+# Route calculation and output
+# -------------------------------
 @mcp.tool()
 async def route_between_locations(origin_text: str, destination_text: str) -> str:
     """
-    Calculates the metro route between two locations given in plain text
+    Calculates the metro route between two text locations (using Neo4j as data source).
     """
+
+    # Step 1: Geocode both locations
     origin_coords = await geocode_location(origin_text)
     if not origin_coords:
         return f"Could not find the origin location '{origin_text}'."
@@ -135,36 +110,46 @@ async def route_between_locations(origin_text: str, destination_text: str) -> st
     if not destination_coords:
         return f"Could not find the destination location '{destination_text}'."
 
-    raw = await make_api_request("/infoEstacao/todos")
-    if not raw:
-        return "Error retrieving metro stations."
+    orig_lat, orig_lon = origin_coords
+    dest_lat, dest_lon = destination_coords
 
-    stations = raw.get("resposta") if isinstance(raw, dict) else raw
+    # Step 2: Query Neo4j for best route
+    route_data = await get_shortest_path_from_coords(orig_lat, orig_lon, dest_lat, dest_lon)
+    if not route_data:
+        return "No route found between these locations."
 
-    def nearest_station(coord):
-        min_dist = float("inf")
-        nearest = None
+    # Step 3: Build a nice human-readable response
+    origem = route_data["EstacaoOrigem"]
+    destino = route_data["EstacaoDestino"]
+    estacoes = route_data["Estacoes"]
+    linhas = route_data["Linhas"]
+    num_paragens = route_data["NumeroDeParagens"]
 
-        for e in stations:
-            station_coord = (float(e["stop_lat"]), float(e["stop_lon"]))
-            dist = geodesic(coord, station_coord).meters
-            print(f"Distance to {e['stop_name']}: {dist:.1f} m", file=sys.stderr)
-            if dist < min_dist:
-                min_dist = dist
-                nearest = e
+    TEMPO_ENTRE_ESTACOES = 2  # minutes
+    TEMPO_ESPERA = 4          # minutes
+    tempo_estimado = num_paragens * TEMPO_ENTRE_ESTACOES + TEMPO_ESPERA
 
-        return nearest
+    texto_estacoes = " → ".join(estacoes)
+    texto_linhas = ", ".join(set(linhas))
 
-    origin_station = nearest_station(origin_coords)
-    destination_station = nearest_station(destination_coords)
+    return (
+        f"The nearest station to your origin is **{origem}**.\n"
+        f"The nearest station to your destination is **{destino}**.\n"
+        f"Route: {texto_estacoes}.\n"
+        f"Lines used: {texto_linhas}.\n"
+        f"Number of stops: {num_paragens}.\n"
+        f"Estimated travel time: **{tempo_estimado} minutes**."
+    )
 
-    return await route_between_stations(origin_station, destination_station)
 
+# -------------------------------
+# Local testing
+# -------------------------------
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "test":
         async def test():
-            origin = "Estádio da Luz"
-            destination = "Altice Arena"
+            origin = "Avenida da Liberdade"
+            destination = "Terreiro do Paço"
             result = await route_between_locations(origin, destination)
             print(result)
 
